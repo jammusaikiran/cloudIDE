@@ -8,6 +8,7 @@ import { DBconnect } from './config/DBconnect.js'
 import { router as Authroutes } from './routes/Authroutes.js'
 import { router as FolderRoutes } from './routes/Folder-Routes.js'
 import {router as FileRoutes} from './routes/File-Routes.js'
+import { router as CollaborationRoutes } from './routes/Collaboration-Routes.js'
 
 import path from 'path'
 
@@ -25,6 +26,7 @@ app.use("/uploads", express.static(path.join(path.resolve(), "uploads")));
 app.use('/api/auth',Authroutes)
 app.use("/api/folders", FolderRoutes);
 app.use("/api/files", FileRoutes);
+app.use("/api/collaboration", CollaborationRoutes);
 
 DBconnect()
 minioConfig()

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
 import { useDropzone } from "react-dropzone";
@@ -6,6 +6,7 @@ import { useFileStore } from "../store/useFileStore";
 import FolderCard from "../components/FolderCard";
 import FileCard from "../components/FileCard";
 import toast from "react-hot-toast";
+import { axiosInstance } from "../utils/axiosInstance";
 import {
   PlusCircle,
   X,
@@ -15,7 +16,9 @@ import {
   Code2,
   Loader2,
   FileCode,
-  Folder as FolderIcon
+  Folder as FolderIcon,
+  FolderUp,
+  Users
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -35,11 +38,93 @@ const Dashboard = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const folderInputRef = useRef(null);
+  const [collaborativeProjects, setCollaborativeProjects] = useState([]);
+  const [allProjects, setAllProjects] = useState([]);
 
-  // Load folders/files
+  // Fetch collaborative projects
+  const fetchCollaborativeProjects = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axiosInstance.get('/collaboration/user', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Get all collaborative projects (owned + shared)
+      // Backend returns ownedProjects and sharedProjects
+      const ownedProjects = response.data.ownedProjects || [];
+      const sharedProjects = response.data.sharedProjects || [];
+      const allCollabProjects = [...ownedProjects, ...sharedProjects];
+      
+      setCollaborativeProjects(allCollabProjects);
+      return allCollabProjects;
+    } catch (error) {
+      console.error('Error fetching collaborative projects:', error);
+      return [];
+    }
+  };
+
+  // Load folders/files and collaborative projects
   useEffect(() => {
-    fetchData();
+    const loadAllData = async () => {
+      await fetchData();
+      await fetchCollaborativeProjects();
+    };
+    loadAllData();
   }, [fetchData]);
+
+  // Merge regular folders and collaborative projects
+  useEffect(() => {
+    const mergedProjects = [];
+    const projectIds = new Set();
+
+    // Add regular folders first
+    if (folders && folders.length > 0) {
+      folders.forEach(folder => {
+        mergedProjects.push({ ...folder, isCollaborative: false });
+        projectIds.add(folder._id);
+      });
+    }
+
+    // Add collaborative projects and mark existing folders as collaborative
+    if (collaborativeProjects && collaborativeProjects.length > 0) {
+      collaborativeProjects.forEach(collab => {
+        const projectId = collab.projectId?._id || collab.projectId;
+        
+        if (!projectId) {
+          return;
+        }
+
+        // Check if this folder is already in mergedProjects
+        const existingIndex = mergedProjects.findIndex(p => p._id === projectId);
+        
+        if (existingIndex !== -1) {
+          // Mark existing folder as collaborative
+          mergedProjects[existingIndex] = {
+            ...mergedProjects[existingIndex],
+            isCollaborative: true,
+            collaborationId: collab._id,
+            isOwner: collab.owner?._id === user?._id || collab.owner === user?._id,
+            collaborators: collab.collaborators || []
+          };
+        } else if (collab.projectId) {
+          // Add new collaborative project that user doesn't own
+          const project = {
+            _id: projectId,
+            name: collab.projectId.name || collab.name,
+            createdAt: collab.projectId.createdAt || collab.createdAt,
+            isCollaborative: true,
+            collaborationId: collab._id,
+            isOwner: collab.owner?._id === user?._id || collab.owner === user?._id,
+            collaborators: collab.collaborators || []
+          };
+          mergedProjects.push(project);
+        }
+      });
+    }
+
+    setAllProjects(mergedProjects);
+  }, [folders, collaborativeProjects, user]);
 
   // Dropzone
   const onDrop = useCallback((acceptedFiles) => {
@@ -77,10 +162,138 @@ const Dashboard = () => {
       await createFolder(newFolderName.trim());
       setNewFolderName("");
       setShowCreateDialog(false);
-      fetchData();
+      await fetchData();
+      await fetchCollaborativeProjects();
       toast.success("Folder created successfully!");
     } catch (err) {
       toast.error("Error creating folder");
+    }
+  };
+
+  // Handle folder upload from local file system
+  const handleFolderUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    setUploading(true);
+    
+    try {
+      // Extract root folder name from the first file's path
+      const firstPath = files[0].webkitRelativePath || files[0].name;
+      const rootFolderName = firstPath.split('/')[0];
+      
+      console.log('Uploading folder:', rootFolderName);
+      console.log('Total files:', files.length);
+      
+      // Create root folder
+      const rootFolderResponse = await createFolder(rootFolderName);
+      console.log('Root folder created:', rootFolderResponse);
+      
+      if (!rootFolderResponse || !rootFolderResponse.success) {
+        throw new Error('Failed to create root folder - API returned error');
+      }
+      
+      if (!rootFolderResponse.folder || !rootFolderResponse.folder._id) {
+        throw new Error('Failed to create root folder - No folder ID in response. Please restart the backend server.');
+      }
+      
+      // Group files by folder path
+      const folderMap = new Map();
+      folderMap.set('', rootFolderResponse.folder._id); // Root folder ID
+      
+      // Parse all file paths and create folder structure
+      const folderPaths = new Set();
+      files.forEach(file => {
+        const relativePath = file.webkitRelativePath || file.name;
+        const pathParts = relativePath.split('/').slice(1); // Remove root folder name
+        
+        // Build all intermediate paths
+        for (let i = 1; i < pathParts.length; i++) {
+          const folderPath = pathParts.slice(0, i).join('/');
+          if (folderPath) {
+            folderPaths.add(folderPath);
+          }
+        }
+      });
+      
+      // Sort paths to create parent folders first
+      const sortedPaths = Array.from(folderPaths).sort();
+      
+      // Create all subfolders
+      for (const folderPath of sortedPaths) {
+        const pathParts = folderPath.split('/');
+        const folderName = pathParts[pathParts.length - 1];
+        const parentPath = pathParts.slice(0, -1).join('/');
+        const parentId = folderMap.get(parentPath);
+        
+        console.log(`Creating subfolder: ${folderName} in parent: ${parentPath || 'root'}`);
+        
+        try {
+          const token = localStorage.getItem('token');
+          const response = await axiosInstance.post('/folders/create-folder', {
+            folderName: folderName,
+            parentId: parentId || null
+          }, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          folderMap.set(folderPath, response.data.folder._id);
+          console.log(`Subfolder created: ${folderName} with ID: ${response.data.folder._id}`);
+        } catch (err) {
+          console.error(`Error creating subfolder ${folderName}:`, err);
+        }
+      }
+      
+      // Upload all files to their respective folders
+      let successCount = 0;
+      for (const file of files) {
+        const relativePath = file.webkitRelativePath || file.name;
+        const pathParts = relativePath.split('/').slice(1); // Remove root folder name
+        const filePath = pathParts.slice(0, -1).join('/');
+        const folderId = folderMap.get(filePath);
+        
+        console.log(`Uploading file: ${file.name} to folder: ${filePath || 'root'}`);
+        console.log(`Target folder ID: ${folderId}`);
+        
+        try {
+          const formData = new FormData();
+          formData.append('files', file);
+          // Always append folderId - it should be the root folder ID or subfolder ID
+          formData.append('folderId', folderId);
+          
+          const token = localStorage.getItem('token');
+          await axiosInstance.post('/files/upload-file', formData, {
+            headers: { 
+              'Content-Type': 'multipart/form-data',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          successCount++;
+          console.log(`✓ File uploaded: ${file.name}`);
+        } catch (err) {
+          console.error(`✗ Error uploading file ${file.name}:`, err);
+          console.error('Error details:', err.response?.data);
+        }
+      }
+      
+      // Refresh the dashboard
+      await fetchData();
+      
+      toast.success(`Folder uploaded successfully! ${successCount}/${files.length} files uploaded.`);
+      console.log(`Folder upload complete: ${successCount}/${files.length} files`);
+      
+    } catch (err) {
+      console.error('Error uploading folder:', err);
+      toast.error('Error uploading folder: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setUploading(false);
+      // Reset the input
+      if (folderInputRef.current) {
+        folderInputRef.current.value = '';
+      }
     }
   };
 
@@ -134,6 +347,23 @@ const Dashboard = () => {
           >
             <FolderPlus size={20} />
             New Project
+          </button>
+
+          <button
+            onClick={() => navigate('/collaboration')}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 rounded-lg font-medium hover:scale-105 transition-transform shadow-lg shadow-teal-500/20"
+          >
+            <Code2 size={20} />
+            Go to Collaboration Development
+          </button>
+
+          <button
+            onClick={() => folderInputRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 rounded-lg font-medium hover:scale-105 transition-transform shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FolderUp size={20} />
+            {uploading ? 'Uploading...' : 'Upload Folder'}
           </button>
 
           <label className="flex items-center gap-2 px-6 py-3 bg-gray-800 border border-gray-700 rounded-lg font-medium hover:bg-gray-700 transition-all cursor-pointer">
@@ -223,17 +453,17 @@ const Dashboard = () => {
         ) : (
           <>
             {/* Folders */}
-            {folders && folders.length > 0 && (
+            {allProjects && allProjects.length > 0 && (
               <div className="mb-12">
                 <div className="flex items-center gap-2 mb-6">
                   <FolderIcon className="text-yellow-500" size={24} />
                   <h3 className="text-2xl font-bold">Projects</h3>
                   <span className="px-3 py-1 bg-gray-800 rounded-full text-sm text-gray-400">
-                    {folders.length}
+                    {allProjects.length}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {folders.map((folder) => (
+                  {allProjects.map((folder) => (
                     <FolderCard key={folder._id} folder={folder} />
                   ))}
                 </div>
@@ -259,7 +489,7 @@ const Dashboard = () => {
             )}
 
             {/* Empty State */}
-            {(!folders || folders.length === 0) && (!files || files.length === 0) && (
+            {(!allProjects || allProjects.length === 0) && (!files || files.length === 0) && (
               <div className="text-center py-20">
                 <div className="inline-flex p-6 bg-gray-900 rounded-full mb-6">
                   <Code2 className="w-16 h-16 text-gray-600" />
@@ -314,6 +544,17 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Hidden folder input for directory upload */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        webkitdirectory=""
+        directory=""
+        multiple
+        onChange={handleFolderUpload}
+        className="hidden"
+      />
     </div>
   );
 };

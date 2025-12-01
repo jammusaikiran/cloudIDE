@@ -3,9 +3,15 @@ import { useAuthStore } from "../store/useAuthStore";
 import { Navigate } from "react-router-dom";
 
 export default function ProtectedRoute({children}){
-    const {user} = useAuthStore()
-    if(!user){
-        <Navigate to="/login" replace/>
+    const {user, loading} = useAuthStore();
+    
+    if (loading) {
+        return <Loader />;
     }
-    return children
+    
+    if (!user) {
+        return <Navigate to="/login" replace />;
+    }
+    
+    return children;
 }

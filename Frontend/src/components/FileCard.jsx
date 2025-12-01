@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { FileCode, MoreVertical, Trash2, Download, FileText } from "lucide-react";
 import { useFileStore } from "../store/useFileStore";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../utils/axiosInstance";
 
 const FileCard = ({ file }) => {
   const { deleteFile } = useFileStore();
+  const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -92,8 +94,21 @@ const FileCard = ({ file }) => {
     setShowMenu(false);
   };
 
+  const handleFileClick = () => {
+    // Navigate to the file's parent folder if it has one, otherwise open as standalone file
+    if (file.parentId) {
+      navigate(`/folder/${file.parentId}?fileId=${file._id}`);
+    } else {
+      // For root-level files without parent folder, navigate to standalone file editor
+      navigate(`/file/${file._id}`);
+    }
+  };
+
   return (
-    <div className="group relative bg-gray-900/50 backdrop-blur-sm border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-all duration-300 hover:scale-105">
+    <div 
+      onClick={handleFileClick}
+      className="group relative bg-gray-900/50 backdrop-blur-sm border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-all duration-300 hover:scale-105 cursor-pointer"
+    >
       {/* Gradient Overlay on Hover */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
 

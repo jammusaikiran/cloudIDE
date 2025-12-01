@@ -2,6 +2,7 @@ import multer from "multer";
 import { minioClient } from "../config/minioClient.js";
 import { File } from "../models/File.js";
 import { Folder } from "../models/Folder.js";
+import { Collaboration } from "../models/Collaboration.js";
 
 // Controller
 export const uploadFile = async (req, res) => {
@@ -18,14 +19,51 @@ export const uploadFile = async (req, res) => {
     // Determine folder path
     let parentFolderId = null;
     let folderPath = ""; // default root
+    let fileOwner = userId; // Default owner is the uploader
 
     if (folderId) {
-      const parentFolder = await Folder.findOne({ _id: folderId, owner: userId });
+      const parentFolder = await Folder.findById(folderId);
       if (!parentFolder) {
         return res.status(404).json({ success: false, message: "Folder not found" });
       }
+      
+      // Check if user owns the folder OR is a collaborator
+      let hasAccess = parentFolder.owner.toString() === userId.toString();
+      
+      if (!hasAccess) {
+        // Find the root folder
+        let currentFolderId = folderId;
+        let rootFolderId = null;
+        
+        while (currentFolderId) {
+          const folder = await Folder.findById(currentFolderId);
+          if (!folder) break;
+          
+          if (folder.parentId === null) {
+            rootFolderId = folder._id;
+            break;
+          }
+          currentFolderId = folder.parentId;
+        }
+        
+        // Check if user is a collaborator on the root folder
+        if (rootFolderId) {
+          const collaboration = await Collaboration.findOne({
+            projectId: rootFolderId,
+            'collaborators.userId': userId
+          }).lean();
+          
+          hasAccess = !!collaboration;
+        }
+      }
+      
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: "Unauthorized access" });
+      }
+      
       folderPath = parentFolder.path.endsWith("/") ? parentFolder.path : parentFolder.path + "/";
       parentFolderId = parentFolder._id;
+      fileOwner = parentFolder.owner; // Use the folder owner as file owner
     }
 
     const uploadedFiles = [];
@@ -39,7 +77,7 @@ export const uploadFile = async (req, res) => {
       // Save metadata in MongoDB
       const newFile = new File({
         name: file.originalname,
-        owner: userId,
+        owner: fileOwner,
         parentId: parentFolderId,
         fileUrl: objectName,
         size: file.size,

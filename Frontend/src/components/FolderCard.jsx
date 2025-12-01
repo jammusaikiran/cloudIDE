@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Folder, MoreVertical, Trash2, FolderOpen } from "lucide-react";
+import { Folder, MoreVertical, Trash2, FolderOpen, Users } from "lucide-react";
 import { useFileStore } from "../store/useFileStore";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -45,6 +45,21 @@ const FolderCard = ({ folder }) => {
 
       {/* Content */}
       <div className="relative z-10">
+        {/* Collaboration Badge */}
+        {folder.isCollaborative && (
+          <div className="absolute -top-2 -right-2 z-20">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full blur-md opacity-75 animate-pulse"></div>
+              <div className="relative flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-teal-600 to-cyan-600 rounded-full border-2 border-teal-400/50 shadow-lg">
+                <Users size={14} className="text-white" />
+                <span className="text-xs font-bold text-white">
+                  {folder.isOwner ? 'Shared' : 'Collab'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -92,6 +107,12 @@ const FolderCard = ({ folder }) => {
             <FolderOpen size={14} />
             <span>Project</span>
           </div>
+          {folder.isCollaborative && folder.collaborators && (
+            <div className="flex items-center gap-1 text-teal-400">
+              <Users size={14} />
+              <span>{folder.collaborators.length}</span>
+            </div>
+          )}
           {folder.createdAt && (
             <span>
               {new Date(folder.createdAt).toLocaleDateString()}

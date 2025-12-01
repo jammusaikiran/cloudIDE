@@ -1,4 +1,6 @@
 import { File } from "../models/File.js";
+import { Folder } from "../models/Folder.js";
+import { Collaboration } from "../models/Collaboration.js";
 import { minioClient } from "../config/minioClient.js";
 
 export const getFileContent = async (req, res) => {
@@ -16,8 +18,38 @@ export const getFileContent = async (req, res) => {
             });
         }
 
-        // Check if user owns the file
-        if (file.owner.toString() !== userId.toString()) {
+        // Check if user owns the file OR is a collaborator
+        let hasAccess = file.owner.toString() === userId.toString();
+        
+        if (!hasAccess) {
+            // Find the root folder by traversing up the folder tree
+            let currentFolderId = file.parentId;
+            let rootFolderId = null;
+            
+            while (currentFolderId) {
+                const folder = await Folder.findById(currentFolderId);
+                if (!folder) break;
+                
+                if (folder.parentId === null) {
+                    // This is the root folder
+                    rootFolderId = folder._id;
+                    break;
+                }
+                currentFolderId = folder.parentId;
+            }
+            
+            // Check if user is a collaborator on the root folder
+            if (rootFolderId) {
+                const collaboration = await Collaboration.findOne({
+                    projectId: rootFolderId,
+                    'collaborators.userId': userId
+                }).lean();
+                
+                hasAccess = !!collaboration;
+            }
+        }
+        
+        if (!hasAccess) {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized access"

@@ -48,7 +48,7 @@ export const useFileStore = create((set, get) => ({
     try {
       if (!newFolderName.trim()) {
         toast.error("Folder name cannot be empty!");
-        return;
+        return null;
       }
 
       const payload = { folderName: newFolderName };
@@ -62,13 +62,15 @@ export const useFileStore = create((set, get) => ({
 
       if (res.data.success) {
         toast.success(res.data.message);
-        return res.data; // Return data if needed
+        return res.data; // Return data with folder object
       }
 
       toast.error(res.data.message);
+      return res.data; // Return data even if not successful
     } catch (err) {
       toast.error("Error in creating folder");
       console.error(err);
+      return null;
     }
   },
 

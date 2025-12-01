@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Code2, Zap, Shield, Cloud, Terminal, Play, Folder, GitBranch } from "lucide-react";
+import { Code2, Zap, Shield, Cloud, Terminal, Play, Folder, GitBranch, MessageSquare, Users, Mail } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useTheme } from "../context/ThemeContext";
@@ -45,6 +45,24 @@ const Home = () => {
       title: "Lightning Fast",
       description: "Instant file loading and real-time code execution feedback",
       gradient: "from-yellow-500 to-orange-500"
+    },
+    {
+      icon: <MessageSquare className="w-8 h-8" />,
+      title: "AI Copilot Assistant",
+      description: "Get instant coding help, generate code, and ask programming questions with our AI chatbot",
+      gradient: "from-cyan-500 to-teal-500"
+    },
+    {
+      icon: <Users className="w-8 h-8" />,
+      title: "Real-time Collaboration",
+      description: "Work together with your team on shared projects with instant synchronization",
+      gradient: "from-pink-500 to-rose-500"
+    },
+    {
+      icon: <Mail className="w-8 h-8" />,
+      title: "Email Notifications",
+      description: "Stay updated with instant email alerts when collaborators make changes to shared projects",
+      gradient: "from-violet-500 to-purple-500"
     }
   ];
 
@@ -80,8 +98,8 @@ const Home = () => {
           </h1>
 
           <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed">
-            A powerful cloud IDE with integrated code execution, file management, and real-time collaboration.
-            Write, run, and manage your code from any browser.
+            A powerful cloud IDE with integrated code execution, file management, real-time collaboration, and AI assistance.
+            Write, run, collaborate, and manage your code from any browser.
           </p>
 
           {/* CTA Buttons */}

@@ -1,5 +1,5 @@
 import React from "react";
-import { Code2, Zap, Shield, Cloud, Terminal, Play, Folder, GitBranch, Lock, Cpu, HardDrive, Gauge } from "lucide-react";
+import { Code2, Zap, Shield, Cloud, Terminal, Play, Folder, GitBranch, Lock, Cpu, HardDrive, Gauge, MessageSquare, Sparkles, Users, Mail, Bell } from "lucide-react";
 
 const Features = () => {
   const features = [
@@ -86,6 +86,41 @@ const Features = () => {
       description: "Track execution time, memory usage, and code performance with built-in monitoring tools.",
       gradient: "from-amber-500 to-yellow-500",
       details: ["Execution Time", "Memory Stats", "CPU Usage", "Performance Tips"]
+    },
+    {
+      icon: <MessageSquare className="w-12 h-12" />,
+      title: "AI Copilot Assistant",
+      description: "Your intelligent coding companion that helps you write better code faster. Ask questions, generate code snippets, and get instant explanations.",
+      gradient: "from-cyan-500 to-teal-500",
+      details: ["Code Generation", "Smart Suggestions", "Q&A Support", "Multiple Languages"]
+    },
+    {
+      icon: <Sparkles className="w-12 h-12" />,
+      title: "Smart Code Assistance",
+      description: "AI-powered code completion and generation for Python, JavaScript, Java, and more. Get instant help with algorithms and debugging.",
+      gradient: "from-fuchsia-500 to-pink-500",
+      details: ["Auto-complete", "Code Examples", "Error Help", "Best Practices"]
+    },
+    {
+      icon: <Users className="w-12 h-12" />,
+      title: "Real-time Collaboration",
+      description: "Work together with your team on shared projects. Invite collaborators, manage permissions, and code together in real-time.",
+      gradient: "from-pink-500 to-rose-500",
+      details: ["Shared Projects", "Team Management", "Access Control", "Live Updates"]
+    },
+    {
+      icon: <Mail className="w-12 h-12" />,
+      title: "Email Notifications",
+      description: "Receive instant email alerts when team members make changes to collaborative projects. Stay in sync with your team effortlessly.",
+      gradient: "from-violet-500 to-purple-500",
+      details: ["Change Alerts", "Gmail Integration", "Custom Messages", "Instant Delivery"]
+    },
+    {
+      icon: <Bell className="w-12 h-12" />,
+      title: "Project Invitations",
+      description: "Invite collaborators via email with beautiful HTML invitations. Manage your team and track who has access to your projects.",
+      gradient: "from-blue-500 to-indigo-500",
+      details: ["Email Invites", "User Management", "Role Assignment", "Professional Templates"]
     }
   ];
 
@@ -106,8 +141,8 @@ const Features = () => {
           </h1>
 
           <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-            Cloud IDE combines the power of a professional code editor with cloud storage and instant code execution.
-            Build, test, and deploy from anywhere.
+            Cloud IDE combines the power of a professional code editor with cloud storage, instant code execution, and real-time collaboration.
+            Build, test, collaborate, and deploy from anywhere with your team.
           </p>
         </div>
 

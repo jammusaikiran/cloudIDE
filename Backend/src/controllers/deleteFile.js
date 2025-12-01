@@ -1,4 +1,6 @@
 import { File } from "../models/File.js";
+import { Folder } from "../models/Folder.js";
+import { Collaboration } from "../models/Collaboration.js";
 import { minioClient } from "../config/minioClient.js";
 
 export const deleteFile = async (req, res) => {
@@ -8,10 +10,46 @@ export const deleteFile = async (req, res) => {
     if (!fileId) {
       return res.status(400).json({ success: false, message: "fileId is required" });
     }
-    // Find file and verify ownership
-    const file = await File.findOne({ _id: fileId, owner: req.user._id });
+    
+    // Find file
+    const file = await File.findById(fileId);
     if (!file) {
-      return res.status(404).json({ success: false, message: "File not found or not owned by user" });
+      return res.status(404).json({ success: false, message: "File not found" });
+    }
+    
+    // Check if user owns the file OR is a collaborator
+    let hasAccess = file.owner.toString() === req.user._id.toString();
+    
+    if (!hasAccess) {
+      // Find the root folder by traversing up the folder tree
+      let currentFolderId = file.parentId;
+      let rootFolderId = null;
+      
+      while (currentFolderId) {
+        const folder = await Folder.findById(currentFolderId);
+        if (!folder) break;
+        
+        if (folder.parentId === null) {
+          // This is the root folder
+          rootFolderId = folder._id;
+          break;
+        }
+        currentFolderId = folder.parentId;
+      }
+      
+      // Check if user is a collaborator on the root folder
+      if (rootFolderId) {
+        const collaboration = await Collaboration.findOne({
+          projectId: rootFolderId,
+          'collaborators.userId': req.user._id
+        }).lean();
+        
+        hasAccess = !!collaboration;
+      }
+    }
+    
+    if (!hasAccess) {
+      return res.status(403).json({ success: false, message: "Unauthorized access" });
     }
 
     // Delete file from MinIO
