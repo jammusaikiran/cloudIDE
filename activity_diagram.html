@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud IDE Activity Diagram</title>
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({ startOnLoad: true });
+    </script>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        h1 { color: #333; }
+        .mermaid { width: 100%; max-width: 1200px; }
+    </style>
+</head>
+<body>
+    <h1>Cloud IDE Activity Diagram</h1>
+    <div class="mermaid">
+        activityDiagram-v2
+            start
+            :Open Application;
+            if (Is User Logged In?) then (No)
+                :Navigate to Login/Register;
+                if (New User?) then (Yes)
+                    :Register Account;
+                    :Verify & Create User;
+                else (No)
+                    :Login;
+                    :Authenticate User;
+                endif
+            else (Yes)
+                :Auto-login;
+            endif
+
+            :Redirect to Dashboard;
+            :Fetch User Files & Folders;
+
+            fork
+                partition "File Management" {
+                    :View File Explorer;
+                    if (User Action?) then (Upload)
+                        :Select File;
+                        :Upload to Storage (MinIO/Local);
+                    elseif (Create) then (New Folder/File)
+                        :Create New Item;
+                        :Update Database;
+                    elseif (Delete) then (Delete Item)
+                        :Confirm Deletion;
+                        :Remove from Storage & DB;
+                    endif
+                }
+            fork again
+                partition "Code Editor" {
+                    :Select File to Edit;
+                    :Fetch File Content;
+                    :Open Editor (FolderEditor);
+                    
+                    split
+                        :Edit Code;
+                        :Save Changes (Update Content);
+                    split again
+                        :Run Code;
+                        :Send to Execution Engine (executeCode.js);
+                        :Receive Output/Error;
+                        :Display in Terminal;
+                    end split
+                }
+            fork again
+                partition "Collaboration" {
+                    :Navigate to Collaboration Space;
+                    :Join Room/Session;
+                    :Sync Real-time Changes (Socket.io);
+                }
+            end fork
+
+            :Logout;
+            stop
+    </div>
+</body>
+</html>

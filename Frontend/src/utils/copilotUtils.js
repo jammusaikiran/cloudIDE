@@ -20,7 +20,7 @@ export const parseCopilotCommand = (message) => {
     console.log('Has file extension:', hasFileExtension);
 
     // Generate/write code IN a file (e.g., "generate prime number code in hello.py")
-    if ((lowerMsg.includes('generate') || lowerMsg.includes('write') || lowerMsg.includes('code')) && 
+    if ((lowerMsg.includes('generate') || lowerMsg.includes('write') || lowerMsg.includes('code')) &&
         (lowerMsg.includes('in ') || lowerMsg.includes('in\n'))) {
         console.log('✓ Detected code generation for existing file');
         // Extract the filename after "in"
@@ -40,14 +40,14 @@ export const parseCopilotCommand = (message) => {
     // Create file command - check if "create" is present AND it looks like a filename
     if ((lowerMsg.includes('create') || lowerMsg.includes('file')) && hasFileExtension) {
         console.log('✓ Detected file creation request');
-        
+
         // Extract filename - look for word with file extension
         // This matches: test.py, hello.js, my_file.java, etc.
         const fileNameMatch = message.match(/([a-zA-Z0-9_\-]+\.[a-zA-Z0-9]+)/);
         const fileName = fileNameMatch ? fileNameMatch[1] : 'newFile.js';
-        
+
         console.log('Extracted filename:', fileName);
-        
+
         return {
             action: 'create_file',
             fileName,
@@ -56,13 +56,40 @@ export const parseCopilotCommand = (message) => {
         };
     }
 
-    // Explain command - analyze selected file
+    // Explain command - three cases:
+    // 1. "explain this code" / "explain this file" → explain currently open file
+    // 2. "explain Math.py" → explain specific file (if it has extension)
+    // 3. "explain JWT" / "what is JWT?" → general AI question
     if (lowerMsg.includes('explain')) {
-        console.log('✓ Detected explain request');
-        return {
-            action: 'explain_file',
-            description: message
-        };
+        // Case 1: Explain open file (explicit references to "this" or "the")
+        if (lowerMsg.includes('this code') ||
+            lowerMsg.includes('this file') ||
+            lowerMsg.includes('current file') ||
+            lowerMsg.includes('the code') ||
+            lowerMsg === 'explain' ||
+            lowerMsg === 'explain this') {
+            console.log('✓ Detected file explain request (current file)');
+            return {
+                action: 'explain_file',
+                description: message
+            };
+        }
+
+        // Case 2: Explain specific file by name (e.g., "explain Math.py")
+        const fileMatch = message.match(/explain\s+([a-zA-Z0-9._\-]+\.[a-zA-Z0-9]+)/i);
+        if (fileMatch) {
+            const fileName = fileMatch[1];
+            console.log('✓ Detected explain request for specific file:', fileName);
+            return {
+                action: 'explain_specific_file',
+                fileName,
+                description: message
+            };
+        }
+
+        // Case 3: General explanation (no file reference) - let it fall through to AI chat
+        console.log('✓ General explain question - will use AI chat');
+        return null; // Let it be handled by AI chat
     }
 
     // Create project command
@@ -86,9 +113,7 @@ export const parseCopilotCommand = (message) => {
         };
     }
 
-    console.log('✗ No command detected');
-    return null;
-
+    console.log('✗ No command detected - will use AI chat');
     return null;
 };
 
@@ -125,7 +150,7 @@ const extractLanguage = (message) => {
  */
 const extractProjectType = (message) => {
     const types = ['react', 'node', 'python', 'vue', 'angular', 'express', 'django', 'nextjs'];
-    
+
     for (const type of types) {
         if (message.toLowerCase().includes(type)) {
             return type;
@@ -140,12 +165,12 @@ const extractProjectType = (message) => {
  */
 const extractImprovementType = (message) => {
     const msg = message.toLowerCase();
-    
+
     if (msg.includes('performance') || msg.includes('optimize')) return 'performance';
     if (msg.includes('readable') || msg.includes('clean')) return 'readability';
     if (msg.includes('best practice') || msg.includes('follow')) return 'best_practice';
     if (msg.includes('bug') || msg.includes('fix')) return 'bugs';
-    
+
     return 'general';
 };
 
@@ -154,7 +179,7 @@ const extractImprovementType = (message) => {
  */
 export const generateSmartCode = (description, language) => {
     const lowerDesc = description.toLowerCase();
-    
+
     // Python specific patterns
     if (language === 'python') {
         if (lowerDesc.includes('prime') || lowerDesc.includes('prime number')) {
@@ -195,7 +220,7 @@ def main():
 if __name__ == "__main__":
     main()`;
         }
-        
+
         if (lowerDesc.includes('fibonacci')) {
             return `# ${description}
 # Auto-generated Fibonacci code
@@ -223,7 +248,7 @@ def main():
 if __name__ == "__main__":
     main()`;
         }
-        
+
         if (lowerDesc.includes('sort') || lowerDesc.includes('sorting')) {
             return `# ${description}
 # Auto-generated sorting code
@@ -256,7 +281,7 @@ if __name__ == "__main__":
     main()`;
         }
     }
-    
+
     // JavaScript specific patterns
     if (language === 'javascript') {
         if (lowerDesc.includes('prime') || lowerDesc.includes('prime number')) {
@@ -290,7 +315,7 @@ console.log(\`Prime numbers up to \${limit}:\`, primes);
 console.log(\`Total: \${primes.length} primes\`);`;
         }
     }
-    
+
     // Default code generation
     return generateCodeContent(language, description);
 };
@@ -309,7 +334,7 @@ function main() {
 }
 
 main();`,
-        
+
         typescript: `// ${description}
 // Auto-generated code
 
@@ -323,7 +348,7 @@ function main(): void {
 }
 
 main();`,
-        
+
         python: `# ${description}
 # Auto-generated code
 
@@ -333,7 +358,7 @@ def main():
 
 if __name__ == "__main__":
     main()`,
-        
+
         java: `// ${description}
 // Auto-generated code
 
@@ -343,7 +368,7 @@ public class Main {
         System.out.println("Hello from generated code!");
     }
 }`,
-        
+
         html: `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -382,10 +407,10 @@ body {
 }`,
 
         json: {
-    "description": description,
-    "version": "1.0.0",
-    "data": []
-}
+            "description": description,
+            "version": "1.0.0",
+            "data": []
+        }
     };
 
     return templates[language] || templates.javascript;
@@ -396,30 +421,30 @@ body {
  */
 export const generateRefactoredCode = (originalCode, improvementType) => {
     // This is a simplified version. In production, you'd use an actual AI service
-    
+
     const improvements = {
         performance: `// Performance-optimized version
 ${originalCode.split('\n').map(line => {
-    if (line.includes('for') || line.includes('forEach')) {
-        return `// Optimized: Consider using .map() or other functional methods\n${line}`;
-    }
-    return line;
-}).join('\n')}`,
-        
+            if (line.includes('for') || line.includes('forEach')) {
+                return `// Optimized: Consider using .map() or other functional methods\n${line}`;
+            }
+            return line;
+        }).join('\n')}`,
+
         readability: `// Improved readability version
 ${originalCode.split('\n').map(line => {
-    if (line.trim().length > 80) {
-        return '// Consider breaking this line for better readability\n' + line;
-    }
-    return line;
-}).join('\n')}`,
-        
+            if (line.trim().length > 80) {
+                return '// Consider breaking this line for better readability\n' + line;
+            }
+            return line;
+        }).join('\n')}`,
+
         best_practice: `// Best practices applied
 // ✓ Added proper error handling
 // ✓ Added documentation
 // ✓ Following naming conventions
 ${originalCode}`,
-        
+
         bugs: `// Potential issues identified:
 // ⚠️  Check for null/undefined values
 // ⚠️  Validate user input
